@@ -20,23 +20,50 @@ payout <- unique(comp_names_col[type_col == "payout"])
 currency <- unique(data[["Currency"]])
 pay_meth <- unique(data[["Payment Method"]])
 
+data[["Amount"]] <- as.numeric(data[["Amount"]])
+
 total_purch <- data.frame(Name = character(), Currency = character(), Count = numeric(), Paid = numeric(), stringsAsFactors = FALSE)
 total_payo <- data.frame(Name = character(), Currency = character(), Count = numeric(), Success = numeric(), stringsAsFactors = FALSE)
+
+count_meth_vector <- c()
+turn_purch_vector <- c()
+turn_payo_vector <- c()
+turn_purch_vector_DE <- c()
 
 for (name in company_names) {
   for (curr in currency) {
       count_total <- sum(data[[1]] == name & data[["Type"]] == "purchase" & data[["Currency"]] == curr)
-      count_paid <- sum(data[[1]] == name & data[["Type"]] == "purchase" & data[["Currency"]] == curr & data[["Status"]] == "paid")
-      total_purch <- rbind(total_purch, data.frame(Name = name, Currency = curr, Count = count_total, Paid = count_paid))
-      
+      if (count_total != 0) {
+        count_paid <- sum(data[[1]] == name & data[["Type"]] == "purchase" & data[["Currency"]] == curr & data[["Status"]] == "paid")
+        
+        purch_data_filt <- data %>%
+           filter(`Legal Name` == name, Type == "purchase", Currency == curr, Status == "paid")
+        turn_purch <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
+        turn_purch_vector <- c(turn_purch_vector, turn_purch)
+        
+        purch_data_filt <- data %>%
+          filter(`Legal Name` == name, Type == "purchase", Currency == curr, Status == "paid", Country == "DE")
+        turn_purch_DE <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
+        turn_purch_vector_DE <- c(turn_purch_vector_DE, turn_purch_DE)
+        
+        count_meth <- sum(data[[1]] == name & data[["Type"]] == "purchase" & data[["Currency"]] == curr & data[["Status"]] == "paid" & data[["Payment Method"]] %in% c("mastercard", "maestro"))
+        count_meth_vector <- c(count_meth_vector, count_meth)
+        total_purch <- rbind(total_purch, data.frame(Name = name, Currency = curr, Count = count_total, Paid = count_paid))
+      }
+    
       count_total <- sum(data[[1]] == name & data[["Type"]] == "payout" & data[["Currency"]] == curr)
-      count_suc <- sum(data[[1]] == name & data[["Type"]] == "payout" & data[["Currency"]] == curr & data[["Status"]] == "success")
-      total_payo <- rbind(total_payo, data.frame(Name = name, Currency = curr, Count = count_total, Success = count_suc)) 
+      if (count_total != 0) {
+        
+        purch_data_filt <- data %>%
+          filter(`Legal Name` == name, Type == "payout", Currency == curr, Status == "success")
+        turn_payo <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
+        turn_payo_vector <- c(turn_payo_vector, turn_payo)
+        
+        count_suc <- sum(data[[1]] == name & data[["Type"]] == "payout" & data[["Currency"]] == curr & data[["Status"]] == "success")
+        total_payo <- rbind(total_payo, data.frame(Name = name, Currency = curr, Count = count_total, Success = count_suc))  
+      }
   }
 }
-
-total_purch <- total_purch[total_purch$Count != 0, ]
-total_payo <- total_payo[total_payo$Count != 0, ]
 
 total_purch$err <- total_purch[["Count"]] - total_purch[["Paid"]]
 total_payo$err <- total_payo[["Count"]] - total_payo[["Success"]]
@@ -50,4 +77,30 @@ total_purch$err_p <- (total_purch[["err"]]/total_purch[["Count"]]) * 100
 total_payo$err_p <- (total_payo[["err"]]/total_payo[["Count"]]) * 100
 total_purch$err_p <- sprintf("%.2f%%", total_purch$err_p)
 total_payo$err_p <- sprintf("%.2f%%", total_payo$err_p)
+
+total_purch$Mastercard <- count_meth_vector
+
+total_purch$Turnover <- turn_purch_vector
+total_purch$Turnover_DE <- turn_purch_vector_DE
+total_payo$Turnover <- turn_payo_vector
+
+
+total_purch_card <- total_purch[total_purch$Mastercard != 0, ]
+total_purch_noncard <- total_purch[total_purch$Mastercard == 0, ]
+
+rownames(total_purch_card) <- seq_len(nrow(total_purch_card))
+rownames(total_purch_noncard) <- seq_len(nrow(total_purch_noncard))
+total_purch_noncard$Mastercard <- NULL
+
+total_purch_card$Visa <- total_purch_card$Paid - total_purch_card$Mastercard
+total_purch_card$Mastercard_perc <- (total_purch_card$Mastercard/total_purch_card$Paid) * 100
+total_purch_card$Visa_perc <- (total_purch_card$Visa/total_purch_card$Paid) * 100
+
+total_purch_card$Mastercard_perc <- sprintf("%.2f%%", total_purch_card$Mastercard_perc)
+total_purch_card$Visa_perc <- sprintf("%.2f%%", total_purch_card$Visa_perc)
+
+total_purch_card <- total_purch_card %>%
+  select(-Turnover, Turnover) %>%  
+  select(-Turnover_DE, Turnover_DE)
+
 
