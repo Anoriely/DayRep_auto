@@ -1,14 +1,26 @@
 library(readxl)
 library(dplyr)
-library(rstudioapi)
 library(openxlsx)
 
-script_path <- rstudioapi::getActiveDocumentContext()$path
-script_dir <- dirname(script_path)
+args <- commandArgs(trailingOnly = FALSE)
+script_path <- NULL
+
+if (any(grepl("--file=", args))) {
+  script_path <- normalizePath(sub("--file=", "", args[grep("--file=", args)]))
+}
+
+if (is.null(script_path) || script_path == "") {
+  script_dir <- getwd()
+} else {
+  script_dir <- dirname(script_path)
+}
 
 data_directory <- file.path(script_dir)
 prefix <- "Statement"
 files <- list.files(data_directory, pattern = paste0("^", prefix, ".*\\.xlsx$"), full.names = TRUE)
+
+
+
 
 #######################################################################
 
@@ -118,21 +130,15 @@ total_purch_card <- total_purch_card %>%
 
 ######################################################################
 
-file_name <- "output.xlsx"
-
+file_name <- file.path(script_dir, "output.xlsx")
 wb <- createWorkbook()
 
 addWorksheet(wb, "total_purch_card")
-
 addWorksheet(wb, "total_purch_noncard")
-
 addWorksheet(wb, "total_payo")
 
 writeData(wb, sheet = 1, total_purch_card)
-
 writeData(wb, sheet = 2, total_purch_noncard)
-
 writeData(wb, sheet = 3, total_payo)
 
 saveWorkbook(wb, file = file_name, overwrite = TRUE)
-
