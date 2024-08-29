@@ -1,7 +1,18 @@
 library(readxl)
 library(dplyr)
+library(rstudioapi)
+library(openxlsx)
 
-data <- read_excel("/Users/dmitrijsciruks/DayReport/Statement (2024-08-28).xlsx")
+script_path <- rstudioapi::getActiveDocumentContext()$path
+script_dir <- dirname(script_path)
+
+data_directory <- file.path(script_dir)
+prefix <- "Statement"
+files <- list.files(data_directory, pattern = paste0("^", prefix, ".*\\.xlsx$"), full.names = TRUE)
+
+#######################################################################
+
+data <- read_excel(files)
 
 N <- 13
 data <- data[-(1:N), ]
@@ -20,10 +31,11 @@ payout <- unique(comp_names_col[type_col == "payout"])
 currency <- unique(data[["Currency"]])
 pay_meth <- unique(data[["Payment Method"]])
 
-data[["Amount"]] <- as.numeric(data[["Amount"]])
-
 total_purch <- data.frame(Name = character(), Currency = character(), Count = numeric(), Paid = numeric(), stringsAsFactors = FALSE)
 total_payo <- data.frame(Name = character(), Currency = character(), Count = numeric(), Success = numeric(), stringsAsFactors = FALSE)
+
+
+data[["Amount"]] <- as.numeric(data[["Amount"]])
 
 count_meth_vector <- c()
 turn_purch_vector <- c()
@@ -41,9 +53,9 @@ for (name in company_names) {
         turn_purch <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
         turn_purch_vector <- c(turn_purch_vector, turn_purch)
         
-        purch_data_filt <- data %>%
+        purch_data_filt_DE <- data %>%
           filter(`Legal Name` == name, Type == "purchase", Currency == curr, Status == "paid", Country == "DE")
-        turn_purch_DE <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
+        turn_purch_DE <- sum(purch_data_filt_DE[["Amount"]], na.rm = TRUE)
         turn_purch_vector_DE <- c(turn_purch_vector_DE, turn_purch_DE)
         
         count_meth <- sum(data[[1]] == name & data[["Type"]] == "purchase" & data[["Currency"]] == curr & data[["Status"]] == "paid" & data[["Payment Method"]] %in% c("mastercard", "maestro"))
@@ -54,9 +66,9 @@ for (name in company_names) {
       count_total <- sum(data[[1]] == name & data[["Type"]] == "payout" & data[["Currency"]] == curr)
       if (count_total != 0) {
         
-        purch_data_filt <- data %>%
+        payo_data_filt <- data %>%
           filter(`Legal Name` == name, Type == "payout", Currency == curr, Status == "success")
-        turn_payo <- sum(purch_data_filt[["Amount"]], na.rm = TRUE)
+        turn_payo <- sum(payo_data_filt[["Amount"]], na.rm = TRUE)
         turn_payo_vector <- c(turn_payo_vector, turn_payo)
         
         count_suc <- sum(data[[1]] == name & data[["Type"]] == "payout" & data[["Currency"]] == curr & data[["Status"]] == "success")
@@ -103,4 +115,24 @@ total_purch_card <- total_purch_card %>%
   select(-Turnover, Turnover) %>%  
   select(-Turnover_DE, Turnover_DE)
 
+
+######################################################################
+
+file_name <- "output.xlsx"
+
+wb <- createWorkbook()
+
+addWorksheet(wb, "total_purch_card")
+
+addWorksheet(wb, "total_purch_noncard")
+
+addWorksheet(wb, "total_payo")
+
+writeData(wb, sheet = 1, total_purch_card)
+
+writeData(wb, sheet = 2, total_purch_noncard)
+
+writeData(wb, sheet = 3, total_payo)
+
+saveWorkbook(wb, file = file_name, overwrite = TRUE)
 
