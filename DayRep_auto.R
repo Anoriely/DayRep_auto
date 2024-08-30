@@ -2,6 +2,10 @@ library(readxl)
 library(dplyr)
 library(openxlsx)
 
+#Dev Tool
+#setwd("/Users/dmitrijsciruks/DayReport")
+
+
 args <- commandArgs(trailingOnly = FALSE)
 script_path <- NULL
 
@@ -26,14 +30,15 @@ files <- list.files(data_directory, pattern = paste0("^", prefix, ".*\\.xlsx$"),
 
 data <- read_excel(files)
 
-N <- 13
-data <- data[-(1:N), ]
+row_index <- which(apply(data, 1, function(x) any(x == "Legal Name")))[1]
 
-comp_names_col <- data[[1]]
-type_col <- data[["Type"]]
+data <- data[-(1:row_index-1), ]
 
 colnames(data) <- data[1, ]
 data <- data[-(1:1), ]
+
+comp_names_col <- data[[1]]
+type_col <- data[["Type"]]
 
 company_names <- unique(data[[1]])
 
@@ -126,6 +131,35 @@ total_purch_card$Visa_perc <- sprintf("%.2f%%", total_purch_card$Visa_perc)
 total_purch_card <- total_purch_card %>%
   select(-Turnover, Turnover) %>%  
   select(-Turnover_DE, Turnover_DE)
+
+
+#Time Stamps
+first_date <- data$`Created On`[1]
+last_date <- data$`Created On`[nrow(data)]
+
+
+total_date <- paste("Data from ", last_date, " to ", first_date)
+
+
+current_datetime <- Sys.time()
+combined_text <- paste(total_date, "   Report created:", current_datetime, " - Additional info")
+
+time_row_card <- as.data.frame(matrix(NA, nrow = 1, ncol = ncol(total_purch_card)))
+colnames(time_row_card) <- colnames(total_purch_card)
+time_row_card[1, 1] <- combined_text
+
+time_row_noncard <- as.data.frame(matrix(NA, nrow = 1, ncol = ncol(total_purch_noncard)))
+colnames(time_row_noncard) <- colnames(total_purch_noncard)
+time_row_noncard[1, 1] <- combined_text
+
+time_row_payo <- as.data.frame(matrix(NA, nrow = 1, ncol = ncol(total_payo)))
+colnames(time_row_payo) <- colnames(total_payo)
+time_row_payo[1, 1] <- combined_text
+
+total_purch_card <- rbind(total_purch_card, time_row_card)
+total_purch_noncard <- rbind(total_purch_noncard, time_row_noncard)
+total_payo <- rbind(total_payo, time_row_payo)
+
 
 
 ######################################################################
