@@ -1,3 +1,15 @@
+#Checks
+check_and_install <- function(package) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, repos = "http://cran.us.r-project.org")
+    library(package, character.only = TRUE)
+  }
+}
+
+check_and_install("readxl")
+check_and_install("dplyr")
+check_and_install("openxlsx")
+############################################
 library(readxl)
 library(dplyr)
 library(openxlsx)
@@ -164,7 +176,9 @@ total_payo <- rbind(total_payo, time_row_payo)
 
 ######################################################################
 
-file_name <- file.path(script_dir, "output.xlsx")
+first_date_short <- sub("T.*", "", first_date)
+short_name <- paste("Report ", first_date_short, ".xlsx", sep = "")
+file_name <- file.path(script_dir, short_name)
 wb <- createWorkbook()
 
 addWorksheet(wb, "total_purch_card")
